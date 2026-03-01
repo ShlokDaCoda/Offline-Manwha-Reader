@@ -2,119 +2,112 @@
 <html lang="en">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📚 My Library V5.3</title>
+<title>📚 My Library V5.4</title>
 
 <style>
-body {
+body{
   margin:0;
-  font-family:-apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
   background:#0e0e0e;
   color:white;
   transition:0.3s;
   overflow-x:hidden;
 }
 
-header {
-  padding:15px;
+header{
+  padding:20px;
+  text-align:center;
   font-size:22px;
   font-weight:600;
-  text-align:center;
 }
 
-#library {
+#library{
   display:grid;
-  grid-template-columns: repeat(auto-fill,minmax(120px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
   gap:15px;
   padding:15px;
-  width:100%;
   box-sizing:border-box;
 }
 
-.card {
+.card{
   background:#1a1a1a;
-  border-radius:16px;
+  border-radius:18px;
   overflow:hidden;
-  cursor:pointer;
   position:relative;
+  cursor:pointer;
   transition:0.2s;
 }
 
-.card img {
+.card img{
   width:100%;
-  height:150px;
+  height:170px;
   object-fit:cover;
 }
 
-.card p {
-  padding:8px;
+.card p{
+  padding:10px;
   font-size:14px;
   text-align:center;
 }
 
-.card button {
+.card button{
   position:absolute;
-  top:5px;
-  right:5px;
+  top:8px;
+  right:8px;
   background:red;
-  color:white;
   border:none;
+  color:white;
   border-radius:50%;
-  width:25px;
-  height:25px;
-  font-size:14px;
+  width:26px;
+  height:26px;
 }
 
-#reader {
+.loadingBarContainer{
+  width:100%;
+  height:6px;
+  background:#333;
+}
+
+.loadingBar{
+  height:100%;
+  background:#4caf50;
+  transition:width 0.3s;
+}
+
+#reader{
   display:none;
-  opacity:0;
-  transition:0.3s;
   padding:10px;
 }
 
-img.page {
+.page{
   width:100%;
-  display:block;
-  margin-bottom:10px;
+  margin-bottom:12px;
 }
 
-.controls {
+.controls{
   position:fixed;
   bottom:15px;
-  right:0;
   left:0;
+  right:0;
   display:none;
   justify-content:center;
-  gap:10px;
-  padding:5px 10px;
+  gap:8px;
   flex-wrap:wrap;
 }
 
-.controls select {
-  padding:8px;
-  border-radius:10px;
+.controls button, .controls select{
+  padding:8px 12px;
+  border-radius:12px;
+  border:none;
   font-size:14px;
 }
 
-.controls button {
-  padding:8px 12px;
-  font-size:14px;
-  border:none;
-  border-radius:10px;
+.controls button{
   background:white;
   color:black;
 }
 
-#progressBar {
-  position:fixed;
-  top:0;
-  left:0;
-  height:4px;
-  background:#4caf50;
-  width:0%;
-  z-index:999;
-}
-
-.light {
+.light{
   background:white;
   color:black;
 }
@@ -122,52 +115,60 @@ img.page {
 </head>
 <body>
 
-<div id="progressBar"></div>
-<header>📚 My Library <span id="version">V5.3</span></header>
+<header>📚 My Library <span>V5.4</span></header>
 
 <div id="library"></div>
 <div id="reader"></div>
 
 <div class="controls" id="controls">
   <select id="chapterSelect" onchange="jumpChapter()"></select>
-  <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">
-    <button onclick="prevChapter()">← Prev</button>
-    <button onclick="nextChapter()">Next →</button>
-    <button onclick="toggleTheme()">🌓 Theme</button>
-    <button onclick="goLibrary()">📚 Library</button>
-  </div>
+  <button onclick="prevChapter()">← Prev</button>
+  <button onclick="nextChapter()">Next →</button>
+  <button onclick="toggleTheme()">🌓 Theme</button>
+  <button onclick="goLibrary()">📚 Library</button>
 </div>
 
-<input type="file" id="fileUpload" webkitdirectory directory multiple style="position:fixed;bottom:15px;left:15px;">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<input type="file" id="fileUpload" webkitdirectory directory multiple
+style="position:fixed;bottom:20px;left:20px;">
 
 <script>
-let library = JSON.parse(localStorage.getItem("library_v5")) || {};
-let currentManhwa = null;
-let currentChapter = 0;
+let library = JSON.parse(localStorage.getItem("library_v54")) || {};
+let currentManhwa=null;
+let currentChapter=0;
 
-// Save library to localStorage
-function save(){ localStorage.setItem("library_v5", JSON.stringify(library)); }
+function save(){
+  localStorage.setItem("library_v54",JSON.stringify(library));
+}
 
-// Render Library Grid
 function renderLibrary(){
-  const lib = document.getElementById("library");
+  const lib=document.getElementById("library");
   lib.innerHTML="";
+
   for(let name in library){
-    let card = document.createElement("div");
+    let card=document.createElement("div");
     card.className="card";
+
+    let loading="";
+    if(library[name].loading){
+      loading=`
+        <div class="loadingBarContainer">
+          <div class="loadingBar"
+          style="width:${library[name].progress||0}%"></div>
+        </div>`;
+    }
+
     card.innerHTML=`
-      <img src="${library[name].cover}">
+      <img src="${library[name].cover||''}">
       <p>${name}</p>
+      ${loading}
       <button onclick="deleteManhwa(event,'${name}')">×</button>
     `;
-    card.onclick = () => openManhwa(name);
+
+    card.onclick=()=>openManhwa(name);
     lib.appendChild(card);
   }
 }
 
-// Delete Manhwa
 function deleteManhwa(e,name){
   e.stopPropagation();
   if(confirm("Delete "+name+"?")){
@@ -177,160 +178,156 @@ function deleteManhwa(e,name){
   }
 }
 
-// Open a Manhwa
 function openManhwa(name){
-  currentManhwa = name;
-  currentChapter = library[name].bookmark?.chapter || 0;
+  if(library[name].chapters.length===0){
+    alert("Still loading first chapter...");
+    return;
+  }
+
+  currentManhwa=name;
+  currentChapter=0;
 
   document.getElementById("library").style.display="none";
   document.getElementById("reader").style.display="block";
   document.getElementById("controls").style.display="flex";
 
-  loadChapter();
   populateChapterMenu();
-
-  setTimeout(()=>{
-    document.getElementById("reader").style.opacity=1;
-    window.scrollTo(0, library[name].bookmark?.scroll || 0);
-  },50);
+  loadChapter();
 }
 
-// Load Chapter
-async function loadChapter(){
-  const reader = document.getElementById("reader");
+function populateChapterMenu(){
+  const select=document.getElementById("chapterSelect");
+  select.innerHTML="";
+
+  library[currentManhwa].chapterNames.forEach((name,i)=>{
+    let opt=document.createElement("option");
+    opt.value=i;
+    opt.text=name;
+    select.appendChild(opt);
+  });
+
+  select.value=currentChapter;
+}
+
+function loadChapter(){
+  const reader=document.getElementById("reader");
   reader.innerHTML="";
-  const pages = library[currentManhwa].chapters[currentChapter];
+
+  const pages=library[currentManhwa].chapters[currentChapter];
+
   for(let src of pages){
-    const img = document.createElement("img");
-    img.src = src;
+    let img=document.createElement("img");
+    img.src=src;
     img.className="page";
     reader.appendChild(img);
-    await new Promise(r=>setTimeout(r,10)); // yield for large files
   }
+
   window.scrollTo(0,0);
 }
 
-// Populate Chapter Dropdown
-function populateChapterMenu(){
-  const select = document.getElementById("chapterSelect");
-  select.innerHTML="";
-  library[currentManhwa].chapters.forEach((c,i)=>{
-    let opt = document.createElement("option");
-    opt.value=i;
-    opt.text="Chapter "+(i+1);
-    select.appendChild(opt);
-  });
-  select.value = currentChapter;
-}
-
-// Jump to Chapter
-function jumpChapter(){
-  currentChapter = parseInt(document.getElementById("chapterSelect").value);
-  loadChapter();
-}
-
-// Next / Prev
 function nextChapter(){
-  if(currentChapter < library[currentManhwa].chapters.length-1){
+  if(currentChapter<
+     library[currentManhwa].chapters.length-1){
     currentChapter++;
-    loadChapter();
     populateChapterMenu();
+    loadChapter();
+  }else{
+    alert("Next chapter still loading...");
   }
 }
+
 function prevChapter(){
   if(currentChapter>0){
     currentChapter--;
-    loadChapter();
     populateChapterMenu();
+    loadChapter();
   }
 }
 
-// Back to Library
+function jumpChapter(){
+  currentChapter=
+  parseInt(document.getElementById("chapterSelect").value);
+  loadChapter();
+}
+
 function goLibrary(){
-  saveBookmark();
-  document.getElementById("reader").style.opacity=0;
-  setTimeout(()=>{
-    document.getElementById("reader").style.display="none";
-    document.getElementById("controls").style.display="none";
-    document.getElementById("library").style.display="grid";
-  },200);
+  document.getElementById("reader").style.display="none";
+  document.getElementById("controls").style.display="none";
+  document.getElementById("library").style.display="grid";
 }
 
-// Bookmark scroll
-function saveBookmark(){
-  library[currentManhwa].bookmark={
-    chapter:currentChapter,
-    scroll:window.scrollY
-  };
-  save();
-}
-
-window.addEventListener("scroll",()=>{
-  if(currentManhwa){
-    saveBookmark();
-    const docHeight = document.body.scrollHeight-window.innerHeight;
-    const percent = (window.scrollY/docHeight)*100;
-    document.getElementById("progressBar").style.width=percent+"%";
-  }
-});
-
-// Theme toggle
 function toggleTheme(){
   document.body.classList.toggle("light");
-  localStorage.setItem("theme", document.body.classList.contains("light"));
+  localStorage.setItem("theme_v54",
+  document.body.classList.contains("light"));
 }
-if(localStorage.getItem("theme")==="true") document.body.classList.add("light");
 
-// File Upload (ZIP or folders)
-document.getElementById("fileUpload").addEventListener("change", async function(e){
-  const files = Array.from(e.target.files);
-  const manhwaName = prompt("Enter Manhwa Name") || "Unnamed Manhwa";
-  if(!library[manhwaName]) library[manhwaName]={chapters:[],cover:null};
+if(localStorage.getItem("theme_v54")==="true")
+  document.body.classList.add("light");
 
-  const chapters = {};
+document.getElementById("fileUpload")
+.addEventListener("change",async function(e){
+
+  const files=Array.from(e.target.files);
+  const manhwaName=
+  prompt("Enter Manhwa Name")||"Unnamed";
+
+  library[manhwaName]={
+    chapters:[],
+    chapterNames:[],
+    cover:null,
+    loading:true,
+    progress:0
+  };
+
+  save();
+  renderLibrary();
+
+  const grouped={};
 
   for(const file of files){
-    const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split("/") : file.name.split("/");
-    if(pathParts.length < 2) continue;
-    const chap = pathParts[0];
-    if(!chapters[chap]) chapters[chap]=[];
-    const url = URL.createObjectURL(file);
-    chapters[chap].push(url);
+    const path=file.webkitRelativePath.split("/");
+    if(path.length<2)continue;
+
+    const folder=path[0];
+    if(!grouped[folder])grouped[folder]=[];
+    grouped[folder].push(file);
   }
 
-  const sorted = Object.keys(chapters).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const sorted=Object.keys(grouped)
+  .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+
+  let done=0;
+
   for(const chap of sorted){
-    library[manhwaName].chapters.push(chapters[chap]);
+
+    const pages=[];
+
+    for(const file of grouped[chap]){
+      pages.push(URL.createObjectURL(file));
+      await new Promise(r=>setTimeout(r,0));
+    }
+
+    library[manhwaName].chapters.push(pages);
+    library[manhwaName].chapterNames.push(chap);
+
+    if(!library[manhwaName].cover)
+      library[manhwaName].cover=pages[0];
+
+    done++;
+    library[manhwaName].progress=
+    Math.floor((done/sorted.length)*100);
+
+    save();
+    renderLibrary();
   }
 
-  // Auto thumbnail
-  library[manhwaName].cover = library[manhwaName].chapters[0][0];
-
+  library[manhwaName].loading=false;
   save();
   renderLibrary();
 });
 
-// Swipe detection for chapters
-let startX=0;
-document.addEventListener("touchstart",e=>startX=e.changedTouches[0].screenX);
-document.addEventListener("touchend",e=>{
-  let diff = e.changedTouches[0].screenX - startX;
-  if(Math.abs(diff)>120){
-    if(diff<0) nextChapter();
-    else prevChapter();
-  }
-});
-
-// Pull to refresh library
-let startY=0;
-document.addEventListener("touchstart", e=>startY=e.changedTouches[0].screenY);
-document.addEventListener("touchend", e=>{
-  if(window.scrollY===0 && e.changedTouches[0].screenY-startY>120) goLibrary();
-});
-
-// Initial render
 renderLibrary();
 </script>
-
 </body>
 </html>
