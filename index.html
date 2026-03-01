@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Offline Manhwa Reader V5.5</title>
+<title>Offline Manhwa Reader V6</title>
 
 <style>
 body{
@@ -17,13 +17,13 @@ header{
   justify-content:space-between;
   align-items:center;
   padding:15px 20px;
+  background:#1a1a1a;
   font-size:20px;
   font-weight:600;
-  background:#181818;
 }
 
-button{
-  padding:8px 14px;
+button, select{
+  padding:8px 12px;
   border-radius:12px;
   border:none;
   font-size:14px;
@@ -46,7 +46,6 @@ button{
   border-radius:16px;
   overflow:hidden;
   cursor:pointer;
-  position:relative;
 }
 
 .card img{
@@ -59,19 +58,6 @@ button{
   padding:10px;
   text-align:center;
   font-size:14px;
-}
-
-.loadingBarContainer{
-  height:6px;
-  background:#333;
-  width:100%;
-}
-
-.loadingBar{
-  height:100%;
-  background:#4caf50;
-  width:0%;
-  transition:width 0.3s;
 }
 
 #reader{
@@ -100,17 +86,17 @@ button{
 <body>
 
 <header>
-  <div>📚 My Library V5.5</div>
+  <div>📚 My Library V6</div>
   <button id="uploadBtn" onclick="document.getElementById('fileUpload').click()">Upload</button>
 </header>
 
 <input type="file" id="fileUpload" webkitdirectory directory multiple hidden>
 
 <div id="library"></div>
-
 <div id="reader"></div>
 
 <div class="controls" id="controls">
+  <select id="chapterSelect" onchange="jumpChapter()"></select>
   <button onclick="prevChapter()">← Prev</button>
   <button onclick="nextChapter()">Next →</button>
   <button onclick="goLibrary()">Library</button>
@@ -128,34 +114,17 @@ function renderLibrary(){
 
   for(let name in library){
     const card = document.createElement("div");
-    card.className = "card";
-
-    let loadingHTML = "";
-    if(library[name].loading){
-      loadingHTML = `
-        <div class="loadingBarContainer">
-          <div class="loadingBar" style="width:${library[name].progress}%"></div>
-        </div>
-      `;
-    }
-
+    card.className="card";
     card.innerHTML = `
-      <img src="${library[name].cover || ''}">
+      <img src="${library[name].cover}">
       <p>${name}</p>
-      ${loadingHTML}
     `;
-
-    card.onclick = () => openManhwa(name);
+    card.onclick = ()=>openManhwa(name);
     lib.appendChild(card);
   }
 }
 
 function openManhwa(name){
-  if(library[name].chapters.length === 0){
-    alert("Still processing first chapter...");
-    return;
-  }
-
   currentManhwa = name;
   currentChapter = 0;
 
@@ -163,18 +132,33 @@ function openManhwa(name){
   document.getElementById("reader").style.display="block";
   document.getElementById("controls").style.display="flex";
 
+  populateChapterSelect();
   loadChapter();
+}
+
+function populateChapterSelect(){
+  const select = document.getElementById("chapterSelect");
+  select.innerHTML="";
+
+  library[currentManhwa].chapterNames.forEach((chap,i)=>{
+    const opt = document.createElement("option");
+    opt.value=i;
+    opt.text=chap;
+    select.appendChild(opt);
+  });
+
+  select.value=currentChapter;
 }
 
 function loadChapter(){
   const reader = document.getElementById("reader");
-  reader.innerHTML = "";
+  reader.innerHTML="";
 
   const pages = library[currentManhwa].chapters[currentChapter];
 
   for(const src of pages){
-    const img = document.createElement("img");
-    img.src = src;
+    const img=document.createElement("img");
+    img.src=src;
     img.className="page";
     reader.appendChild(img);
   }
@@ -182,18 +166,23 @@ function loadChapter(){
   window.scrollTo(0,0);
 }
 
+function jumpChapter(){
+  currentChapter=parseInt(document.getElementById("chapterSelect").value);
+  loadChapter();
+}
+
 function nextChapter(){
-  if(currentChapter < library[currentManhwa].chapters.length - 1){
+  if(currentChapter < library[currentManhwa].chapters.length-1){
     currentChapter++;
+    document.getElementById("chapterSelect").value=currentChapter;
     loadChapter();
-  } else {
-    alert("Next chapter still loading...");
   }
 }
 
 function prevChapter(){
-  if(currentChapter > 0){
+  if(currentChapter>0){
     currentChapter--;
+    document.getElementById("chapterSelect").value=currentChapter;
     loadChapter();
   }
 }
@@ -204,19 +193,10 @@ function goLibrary(){
   document.getElementById("library").style.display="grid";
 }
 
-document.getElementById("fileUpload").addEventListener("change", async function(e){
+document.getElementById("fileUpload").addEventListener("change", function(e){
 
   const files = Array.from(e.target.files);
   const manhwaName = prompt("Manhwa name?") || "Unnamed";
-
-  library[manhwaName] = {
-    chapters: [],
-    cover: null,
-    loading: true,
-    progress: 0
-  };
-
-  renderLibrary();
 
   const grouped = {};
 
@@ -230,36 +210,37 @@ document.getElementById("fileUpload").addEventListener("change", async function(
     grouped[folder].push(file);
   }
 
-  // TRUE numeric sort (ch0, ch1, ch2 properly)
+  // 🔥 SORT CHAPTERS PROPERLY (reads numbers)
   const sortedChapters = Object.keys(grouped).sort((a,b)=>{
-    const numA = parseInt(a.match(/\d+/));
-    const numB = parseInt(b.match(/\d+/));
+    const numA = parseInt(a.match(/\d+/)) || 0;
+    const numB = parseInt(b.match(/\d+/)) || 0;
     return numA - numB;
   });
 
-  let completed = 0;
+  const finalChapters = [];
+  const chapterNames = [];
 
-  for(const chapter of sortedChapters){
+  for(const chap of sortedChapters){
 
-    const pages = [];
+    // 🔥 SORT PAGES INSIDE CHAPTER
+    grouped[chap].sort((a,b)=>{
+      const numA = parseInt(a.name.match(/\d+/)) || 0;
+      const numB = parseInt(b.name.match(/\d+/)) || 0;
+      return numA - numB;
+    });
 
-    for(const file of grouped[chapter]){
-      pages.push(URL.createObjectURL(file));
-      await new Promise(r=>setTimeout(r,0));
-    }
+    const pages = grouped[chap].map(file => URL.createObjectURL(file));
 
-    library[manhwaName].chapters.push(pages);
-
-    if(!library[manhwaName].cover)
-      library[manhwaName].cover = pages[0];
-
-    completed++;
-    library[manhwaName].progress = Math.floor((completed / sortedChapters.length) * 100);
-
-    renderLibrary();
+    finalChapters.push(pages);
+    chapterNames.push(chap);
   }
 
-  library[manhwaName].loading = false;
+  library[manhwaName] = {
+    chapters: finalChapters,
+    chapterNames: chapterNames,
+    cover: finalChapters[0][0]
+  };
+
   renderLibrary();
 });
 
