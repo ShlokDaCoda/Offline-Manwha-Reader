@@ -1,31 +1,52 @@
-const CACHE_NAME = 'manhwa-reader-v3-1';
-const FILES_TO_CACHE = [
-  '/',           // index.html
-  '/index.html', // main HTML
-  '/favicon.ico' // optional, if you have one
-];
+document.getElementById("zipUpload").addEventListener("change", async function(e){
+    let file = e.target.files[0];
+    if(!file) return;
 
-// Install event
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(FILES_TO_CACHE))
-  );
-});
+    // Show loading bar
+    const loadingBar = document.getElementById("loadingBar");
+    const loadingFill = document.getElementById("loadingFill");
+    loadingBar.style.display = "block";
+    loadingFill.style.width = "0%";
 
-// Activate event
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.map(key => {
-        if (key !== CACHE_NAME) return caches.delete(key);
-      }))
-    )
-  );
-});
+    let zip = await JSZip.loadAsync(file);
+    let name = file.name.replace(".zip","");
+    library[name] = { chapters: [], cover: null };
 
-// Fetch event
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(resp => resp || fetch(event.request))
-  );
+    let chapters = {};
+    zip.forEach((path, f) => {
+        if(!f.dir){
+            let parts = path.split("/");
+            let chap = parts[0];
+            if(!chapters[chap]) chapters[chap] = [];
+            chapters[chap].push(f);
+        }
+    });
+
+    let sorted = Object.keys(chapters).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+
+    let totalImages = 0;
+    sorted.forEach(chap=>totalImages += chapters[chap].length);
+    let processed = 0;
+
+    for(let chap of sorted){
+        let imgs = [];
+        let files = chapters[chap].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+        for(let f of files){
+            let blob = await f.async("blob");
+            let url = URL.createObjectURL(blob);
+            imgs.push(url);
+
+            // Update loading progress
+            processed++;
+            loadingFill.style.width = ((processed/totalImages)*100)+"%";
+        }
+        library[name].chapters.push(imgs);
+    }
+
+    library[name].cover = library[name].chapters[0][0]; // auto thumbnail
+    save();
+    renderLibrary();
+
+    // Hide loading bar
+    loadingBar.style.display = "none";
 });
