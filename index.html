@@ -1,76 +1,76 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📚 My Library V5.4</title>
+<title>Offline Manhwa Reader V5.5</title>
 
 <style>
 body{
   margin:0;
   font-family:-apple-system,BlinkMacSystemFont,sans-serif;
-  background:#0e0e0e;
+  background:#111;
   color:white;
-  transition:0.3s;
-  overflow-x:hidden;
 }
 
 header{
-  padding:20px;
-  text-align:center;
-  font-size:22px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:15px 20px;
+  font-size:20px;
   font-weight:600;
+  background:#181818;
+}
+
+button{
+  padding:8px 14px;
+  border-radius:12px;
+  border:none;
+  font-size:14px;
+}
+
+#uploadBtn{
+  background:#4caf50;
+  color:white;
 }
 
 #library{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
   gap:15px;
-  padding:15px;
-  box-sizing:border-box;
+  padding:20px;
 }
 
 .card{
-  background:#1a1a1a;
-  border-radius:18px;
+  background:#1e1e1e;
+  border-radius:16px;
   overflow:hidden;
-  position:relative;
   cursor:pointer;
-  transition:0.2s;
+  position:relative;
 }
 
 .card img{
   width:100%;
-  height:170px;
+  height:180px;
   object-fit:cover;
 }
 
 .card p{
   padding:10px;
-  font-size:14px;
   text-align:center;
-}
-
-.card button{
-  position:absolute;
-  top:8px;
-  right:8px;
-  background:red;
-  border:none;
-  color:white;
-  border-radius:50%;
-  width:26px;
-  height:26px;
+  font-size:14px;
 }
 
 .loadingBarContainer{
-  width:100%;
   height:6px;
   background:#333;
+  width:100%;
 }
 
 .loadingBar{
   height:100%;
   background:#4caf50;
+  width:0%;
   transition:width 0.3s;
 }
 
@@ -94,130 +94,87 @@ header{
   gap:8px;
   flex-wrap:wrap;
 }
-
-.controls button, .controls select{
-  padding:8px 12px;
-  border-radius:12px;
-  border:none;
-  font-size:14px;
-}
-
-.controls button{
-  background:white;
-  color:black;
-}
-
-.light{
-  background:white;
-  color:black;
-}
 </style>
 </head>
+
 <body>
 
-<header>📚 My Library <span>V5.4</span></header>
+<header>
+  <div>📚 My Library V5.5</div>
+  <button id="uploadBtn" onclick="document.getElementById('fileUpload').click()">Upload</button>
+</header>
+
+<input type="file" id="fileUpload" webkitdirectory directory multiple hidden>
 
 <div id="library"></div>
+
 <div id="reader"></div>
 
 <div class="controls" id="controls">
-  <select id="chapterSelect" onchange="jumpChapter()"></select>
   <button onclick="prevChapter()">← Prev</button>
   <button onclick="nextChapter()">Next →</button>
-  <button onclick="toggleTheme()">🌓 Theme</button>
-  <button onclick="goLibrary()">📚 Library</button>
+  <button onclick="goLibrary()">Library</button>
 </div>
 
-<input type="file" id="fileUpload" webkitdirectory directory multiple
-style="position:fixed;bottom:20px;left:20px;">
-
 <script>
-let library = JSON.parse(localStorage.getItem("library_v54")) || {};
-let currentManhwa=null;
-let currentChapter=0;
 
-function save(){
-  localStorage.setItem("library_v54",JSON.stringify(library));
-}
+let library = {};
+let currentManhwa = null;
+let currentChapter = 0;
 
 function renderLibrary(){
-  const lib=document.getElementById("library");
-  lib.innerHTML="";
+  const lib = document.getElementById("library");
+  lib.innerHTML = "";
 
   for(let name in library){
-    let card=document.createElement("div");
-    card.className="card";
+    const card = document.createElement("div");
+    card.className = "card";
 
-    let loading="";
+    let loadingHTML = "";
     if(library[name].loading){
-      loading=`
+      loadingHTML = `
         <div class="loadingBarContainer">
-          <div class="loadingBar"
-          style="width:${library[name].progress||0}%"></div>
-        </div>`;
+          <div class="loadingBar" style="width:${library[name].progress}%"></div>
+        </div>
+      `;
     }
 
-    card.innerHTML=`
-      <img src="${library[name].cover||''}">
+    card.innerHTML = `
+      <img src="${library[name].cover || ''}">
       <p>${name}</p>
-      ${loading}
-      <button onclick="deleteManhwa(event,'${name}')">×</button>
+      ${loadingHTML}
     `;
 
-    card.onclick=()=>openManhwa(name);
+    card.onclick = () => openManhwa(name);
     lib.appendChild(card);
   }
 }
 
-function deleteManhwa(e,name){
-  e.stopPropagation();
-  if(confirm("Delete "+name+"?")){
-    delete library[name];
-    save();
-    renderLibrary();
-  }
-}
-
 function openManhwa(name){
-  if(library[name].chapters.length===0){
-    alert("Still loading first chapter...");
+  if(library[name].chapters.length === 0){
+    alert("Still processing first chapter...");
     return;
   }
 
-  currentManhwa=name;
-  currentChapter=0;
+  currentManhwa = name;
+  currentChapter = 0;
 
   document.getElementById("library").style.display="none";
   document.getElementById("reader").style.display="block";
   document.getElementById("controls").style.display="flex";
 
-  populateChapterMenu();
   loadChapter();
 }
 
-function populateChapterMenu(){
-  const select=document.getElementById("chapterSelect");
-  select.innerHTML="";
-
-  library[currentManhwa].chapterNames.forEach((name,i)=>{
-    let opt=document.createElement("option");
-    opt.value=i;
-    opt.text=name;
-    select.appendChild(opt);
-  });
-
-  select.value=currentChapter;
-}
-
 function loadChapter(){
-  const reader=document.getElementById("reader");
-  reader.innerHTML="";
+  const reader = document.getElementById("reader");
+  reader.innerHTML = "";
 
-  const pages=library[currentManhwa].chapters[currentChapter];
+  const pages = library[currentManhwa].chapters[currentChapter];
 
-  for(let src of pages){
-    let img=document.createElement("img");
-    img.src=src;
+  for(const src of pages){
+    const img = document.createElement("img");
+    img.src = src;
     img.className="page";
     reader.appendChild(img);
   }
@@ -226,28 +183,19 @@ function loadChapter(){
 }
 
 function nextChapter(){
-  if(currentChapter<
-     library[currentManhwa].chapters.length-1){
+  if(currentChapter < library[currentManhwa].chapters.length - 1){
     currentChapter++;
-    populateChapterMenu();
     loadChapter();
-  }else{
+  } else {
     alert("Next chapter still loading...");
   }
 }
 
 function prevChapter(){
-  if(currentChapter>0){
+  if(currentChapter > 0){
     currentChapter--;
-    populateChapterMenu();
     loadChapter();
   }
-}
-
-function jumpChapter(){
-  currentChapter=
-  parseInt(document.getElementById("chapterSelect").value);
-  loadChapter();
 }
 
 function goLibrary(){
@@ -256,78 +204,67 @@ function goLibrary(){
   document.getElementById("library").style.display="grid";
 }
 
-function toggleTheme(){
-  document.body.classList.toggle("light");
-  localStorage.setItem("theme_v54",
-  document.body.classList.contains("light"));
-}
+document.getElementById("fileUpload").addEventListener("change", async function(e){
 
-if(localStorage.getItem("theme_v54")==="true")
-  document.body.classList.add("light");
+  const files = Array.from(e.target.files);
+  const manhwaName = prompt("Manhwa name?") || "Unnamed";
 
-document.getElementById("fileUpload")
-.addEventListener("change",async function(e){
-
-  const files=Array.from(e.target.files);
-  const manhwaName=
-  prompt("Enter Manhwa Name")||"Unnamed";
-
-  library[manhwaName]={
-    chapters:[],
-    chapterNames:[],
-    cover:null,
-    loading:true,
-    progress:0
+  library[manhwaName] = {
+    chapters: [],
+    cover: null,
+    loading: true,
+    progress: 0
   };
 
-  save();
   renderLibrary();
 
-  const grouped={};
+  const grouped = {};
 
   for(const file of files){
-    const path=file.webkitRelativePath.split("/");
-    if(path.length<2)continue;
+    const path = file.webkitRelativePath.split("/");
+    if(path.length < 2) continue;
 
-    const folder=path[0];
-    if(!grouped[folder])grouped[folder]=[];
+    const folder = path[0];
+
+    if(!grouped[folder]) grouped[folder] = [];
     grouped[folder].push(file);
   }
 
-  const sorted=Object.keys(grouped)
-  .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  // TRUE numeric sort (ch0, ch1, ch2 properly)
+  const sortedChapters = Object.keys(grouped).sort((a,b)=>{
+    const numA = parseInt(a.match(/\d+/));
+    const numB = parseInt(b.match(/\d+/));
+    return numA - numB;
+  });
 
-  let done=0;
+  let completed = 0;
 
-  for(const chap of sorted){
+  for(const chapter of sortedChapters){
 
-    const pages=[];
+    const pages = [];
 
-    for(const file of grouped[chap]){
+    for(const file of grouped[chapter]){
       pages.push(URL.createObjectURL(file));
       await new Promise(r=>setTimeout(r,0));
     }
 
     library[manhwaName].chapters.push(pages);
-    library[manhwaName].chapterNames.push(chap);
 
     if(!library[manhwaName].cover)
-      library[manhwaName].cover=pages[0];
+      library[manhwaName].cover = pages[0];
 
-    done++;
-    library[manhwaName].progress=
-    Math.floor((done/sorted.length)*100);
+    completed++;
+    library[manhwaName].progress = Math.floor((completed / sortedChapters.length) * 100);
 
-    save();
     renderLibrary();
   }
 
-  library[manhwaName].loading=false;
-  save();
+  library[manhwaName].loading = false;
   renderLibrary();
 });
 
 renderLibrary();
+
 </script>
 </body>
 </html>
