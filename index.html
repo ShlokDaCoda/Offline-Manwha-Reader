@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manhwa Reader V3</title>
+
+<style>
+body{
+margin:0;
+font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+background:#0e0e0e;
+color:white;
+transition:0.3s;
+overflow-x:hidden;
+}
+
+header{
+padding:15px;
+font-size:22px;
+font-weight:600;
+text-align:center;
+}
+
+#library{
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+gap:15px;
+padding:15px;
+opacity:1;
+transition:0.3s;
+}
+
+.card{
+background:#1a1a1a;
+border-radius:16px;
+overflow:hidden;
+cursor:pointer;
+position:relative;
+transition:0.2s;
+}
+
+.card img{
+width:100%;
+height:170px;
+object-fit:cover;
+}
+
+.card p{
+padding:8px;
+font-size:14px;
+text-align:center;
+}
+
+.card button{
+position:absolute;
+top:5px;
+right:5px;
+background:red;
+color:white;
+border:none;
+border-radius:50%;
+width:25px;
+height:25px;
+font-size:14px;
+}
+
+#reader{
+display:none;
+opacity:0;
+transition:0.3s;
+}
+
+img.page{
+width:100%;
+display:block;
+}
+
+.controls{
+position:fixed;
+bottom:15px;
+right:15px;
+display:none;
+}
+
+button{
+padding:8px 12px;
+margin:3px;
+border:none;
+border-radius:10px;
+background:white;
+}
+
+#progressBar{
+position:fixed;
+top:0;
+left:0;
+height:4px;
+background:#4caf50;
+width:0%;
+z-index:999;
+}
+
+select{
+padding:8px;
+border-radius:10px;
+}
+
+.light{
+background:white;
+color:black;
+}
+</style>
+</head>
+
+<body>
+
+<div id="progressBar"></div>
+
+<header>📚 My Library</header>
+
+<div id="library"></div>
+<div id="reader"></div>
+
+<div class="controls" id="controls">
+<select id="chapterSelect" onchange="jumpChapter()"></select>
+<button onclick="prevChapter()">←</button>
+<button onclick="nextChapter()">→</button>
+<button onclick="toggleTheme()">🌓</button>
+<button onclick="goLibrary()">📚</button>
+</div>
+
+<input type="file" id="zipUpload" accept=".zip" style="position:fixed;bottom:15px;left:15px;">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
+<script>
+let library=JSON.parse(localStorage.getItem("library_v3"))||{};
+let currentManhwa=null;
+let currentChapter=0;
+
+function save(){localStorage.setItem("library_v3",JSON.stringify(library));}
+
+function renderLibrary(){
+const lib=document.getElementById("library");
+lib.innerHTML="";
+for(let name in library){
+let card=document.createElement("div");
+card.className="card";
+
+card.innerHTML=`
+<img src="${library[name].cover}">
+<p>${name}</p>
+<button onclick="deleteManhwa(event,'${name}')">×</button>
+`;
+
+card.onclick=()=>openManhwa(name);
+lib.appendChild(card);
+}
+}
+
+function deleteManhwa(e,name){
+e.stopPropagation();
+if(confirm("Delete "+name+"?")){
+delete library[name];
+save();
+renderLibrary();
+}
+}
+
+function renameManhwa(name){
+let newName=prompt("Rename:",name);
+if(newName){
+library[newName]=library[name];
+delete library[name];
+save();
+renderLibrary();
+}
+}
+
+function openManhwa(name){
+currentManhwa=name;
+currentChapter=library[name].bookmark?.chapter||0;
+
+document.getElementById("library").style.display="none";
+document.getElementById("reader").style.display="block";
+document.getElementById("controls").style.display="block";
+
+loadChapter();
+populateChapterMenu();
+
+setTimeout(()=>{
+document.getElementById("reader").style.opacity=1;
+window.scrollTo(0,library[name].bookmark?.scroll||0);
+},50);
+}
+
+function loadChapter(){
+let reader=document.getElementById("reader");
+reader.innerHTML="";
+let pages=library[currentManhwa].chapters[currentChapter];
+pages.forEach(src=>{
+let img=document.createElement("img");
+img.src=src;
+img.className="page";
+reader.appendChild(img);
+});
+window.scrollTo(0,0);
+}
+
+function populateChapterMenu(){
+let select=document.getElementById("chapterSelect");
+select.innerHTML="";
+library[currentManhwa].chapters.forEach((c,i)=>{
+let opt=document.createElement("option");
+opt.value=i;
+opt.text="Chapter "+(i+1);
+select.appendChild(opt);
+});
+select.value=currentChapter;
+}
+
+function jumpChapter(){
+currentChapter=parseInt(document.getElementById("chapterSelect").value);
+loadChapter();
+}
+
+function nextChapter(){
+if(currentChapter<library[currentManhwa].chapters.length-1){
+currentChapter++;
+loadChapter();
+populateChapterMenu();
+}
+}
+
+function prevChapter(){
+if(currentChapter>0){
+currentChapter--;
+loadChapter();
+populateChapterMenu();
+}
+}
+
+function goLibrary(){
+saveBookmark();
+document.getElementById("reader").style.opacity=0;
+setTimeout(()=>{
+document.getElementById("reader").style.display="none";
+document.getElementById("controls").style.display="none";
+document.getElementById("library").style.display="grid";
+},200);
+}
+
+function saveBookmark(){
+library[currentManhwa].bookmark={
+chapter:currentChapter,
+scroll:window.scrollY
+};
+save();
+}
+
+window.addEventListener("scroll",()=>{
+if(currentManhwa){
+saveBookmark();
+let docHeight=document.body.scrollHeight-window.innerHeight;
+let percent=(window.scrollY/docHeight)*100;
+document.getElementById("progressBar").style.width=percent+"%";
+}
+});
+
+function toggleTheme(){
+document.body.classList.toggle("light");
+localStorage.setItem("theme",document.body.classList.contains("light"));
+}
+
+if(localStorage.getItem("theme")==="true"){
+document.body.classList.add("light");
+}
+
+document.getElementById("zipUpload").addEventListener("change",async function(e){
+let file=e.target.files[0];
+let zip=await JSZip.loadAsync(file);
+let name=file.name.replace(".zip","");
+library[name]={chapters:[],cover:null};
+
+let chapters={};
+
+zip.forEach((path,f)=>{
+if(!f.dir){
+let parts=path.split("/");
+let chap=parts[0];
+if(!chapters[chap]) chapters[chap]=[];
+chapters[chap].push(f);
+}
+});
+
+let sorted=Object.keys(chapters).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+
+for(let chap of sorted){
+let imgs=[];
+let files=chapters[chap].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+for(let f of files){
+let blob=await f.async("blob");
+let url=URL.createObjectURL(blob);
+imgs.push(url);
+}
+library[name].chapters.push(imgs);
+}
+
+library[name].cover=library[name].chapters[0][0]; // auto thumbnail
+
+save();
+renderLibrary();
+});
+
+renderLibrary();
+
+/* Swipe detection */
+let startX=0;
+document.addEventListener("touchstart",e=>startX=e.changedTouches[0].screenX);
+document.addEventListener("touchend",e=>{
+let diff=e.changedTouches[0].screenX-startX;
+if(Math.abs(diff)>120){
+if(diff<0) nextChapter();
+else prevChapter();
+}
+});
+
+/* Pull to refresh */
+let startY=0;
+document.addEventListener("touchstart",e=>startY=e.changedTouches[0].screenY);
+document.addEventListener("touchend",e=>{
+if(window.scrollY===0 && e.changedTouches[0].screenY-startY>120){
+goLibrary();
+}
+});
+</script>
+
+</body>
+</html>
