@@ -321,4 +321,11 @@ document.addEventListener("touchend",e=>{
 renderLibrary();
 </script>
 </body>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+    .then(() => console.log('Service Worker registered!'))
+    .catch(err => console.log('Service Worker failed:', err));
+}
+</script>
 </html>
