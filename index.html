@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manhwa Reader V5</title>
+<title>Manhwa Reader V5.1</title>
 
 <style>
 body{
@@ -13,14 +13,17 @@ color:white;
 transition:0.3s;
 overflow-x:hidden;
 }
-
 header{
 padding:15px;
 font-size:22px;
 font-weight:600;
 text-align:center;
 }
-
+#versionTag{
+font-size:14px;
+margin-left:10px;
+color:#ccc;
+}
 #library{
 display:grid;
 grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
@@ -29,7 +32,6 @@ padding:15px;
 opacity:1;
 transition:0.3s;
 }
-
 .card{
 background:#1a1a1a;
 border-radius:16px;
@@ -38,19 +40,16 @@ cursor:pointer;
 position:relative;
 transition:0.2s;
 }
-
 .card img{
 width:100%;
 height:170px;
 object-fit:cover;
 }
-
 .card p{
 padding:8px;
 font-size:14px;
 text-align:center;
 }
-
 .card button{
 position:absolute;
 top:5px;
@@ -63,25 +62,21 @@ width:25px;
 height:25px;
 font-size:14px;
 }
-
 #reader{
 display:none;
 opacity:0;
 transition:0.3s;
 }
-
 img.page{
 width:100%;
 display:block;
 }
-
 .controls{
 position:fixed;
 bottom:15px;
 right:15px;
 display:none;
 }
-
 button{
 padding:8px 12px;
 margin:3px;
@@ -89,7 +84,6 @@ border:none;
 border-radius:10px;
 background:white;
 }
-
 #progressBar{
 position:fixed;
 top:0;
@@ -99,18 +93,15 @@ background:#4caf50;
 width:0%;
 z-index:999;
 }
-
 select{
 padding:8px;
 border-radius:10px;
 }
-
 .light{
 background:white;
 color:black;
 }
-
-/* Loading bar for ZIP processing */
+/* Loading bar */
 #loadingBar{
 position:fixed;
 top:50%;
@@ -127,7 +118,6 @@ color:white;
 line-height:40px;
 font-weight:bold;
 }
-
 #loadingFill{
 height:100%;
 background:#4caf50;
@@ -141,13 +131,12 @@ z-index:-1;
 }
 </style>
 </head>
-
 <body>
 
 <div id="progressBar"></div>
 <div id="loadingBar"><div id="loadingFill"></div><span id="loadingText"></span></div>
 
-<header>📚 My Library <span id="versionTag">V5</span></header>
+<header>📚 My Library <span id="versionTag">V5.1</span></header>
 
 <div id="library"></div>
 <div id="reader"></div>
@@ -160,9 +149,7 @@ z-index:-1;
 <button onclick="goLibrary()">📚</button>
 </div>
 
-<input type="file" id="zipUpload" accept=".zip" style="position:fixed;bottom:15px;left:15px;">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<input type="file" id="folderUpload" webkitdirectory directory multiple style="position:fixed;bottom:15px;left:15px;">
 
 <script>
 let library = JSON.parse(localStorage.getItem("library_v5"))||{};
@@ -170,20 +157,17 @@ let currentManhwa = null;
 let currentChapter = 0;
 
 function save(){localStorage.setItem("library_v5",JSON.stringify(library));}
-
 function renderLibrary(){
   const lib=document.getElementById("library");
   lib.innerHTML="";
   for(let name in library){
     let card=document.createElement("div");
     card.className="card";
-
     card.innerHTML=`
       <img src="${library[name].cover||''}">
       <p>${name}</p>
       <button onclick="deleteManhwa(event,'${name}')">×</button>
     `;
-
     card.onclick=()=>openManhwa(name);
     lib.appendChild(card);
   }
@@ -211,14 +195,11 @@ function renameManhwa(name){
 function openManhwa(name){
   currentManhwa=name;
   currentChapter=library[name].bookmark?.chapter||0;
-
   document.getElementById("library").style.display="none";
   document.getElementById("reader").style.display="block";
   document.getElementById("controls").style.display="block";
-
   loadChapter();
   populateChapterMenu();
-
   setTimeout(()=>{
     document.getElementById("reader").style.opacity=1;
     window.scrollTo(0,library[name].bookmark?.scroll||0);
@@ -307,50 +288,51 @@ if(localStorage.getItem("theme")==="true"){
   document.body.classList.add("light");
 }
 
-/* ZIP Upload with incremental chapter loading + loading bar text */
-document.getElementById("zipUpload").addEventListener("change", async function(e){
-  const file=e.target.files[0];
-  if(!file) return;
+/* Folder upload */
+document.getElementById("folderUpload").addEventListener("change", async function(e){
+  const files=Array.from(e.target.files);
+  if(files.length===0) return;
 
   const loadingBar=document.getElementById("loadingBar");
   const loadingFill=document.getElementById("loadingFill");
   const loadingText=document.getElementById("loadingText");
   loadingBar.style.display="block";
   loadingFill.style.width="0%";
-  loadingText.innerText="Initializing...";
 
-  const zip=await JSZip.loadAsync(file);
-  const name=file.name.replace(".zip","");
+  // Determine manhwa name from top folder
+  const firstFolder=files[0].webkitRelativePath.split("/")[0];
+  const name=firstFolder;
   library[name]={chapters:[],cover:null};
   save();
   renderLibrary();
 
-  let chapters={};
-  zip.forEach((path,f)=>{
-    if(!f.dir){
-      const parts=path.split("/");
-      const chap=parts[0];
-      if(!chapters[chap]) chapters[chap]=[];
-      chapters[chap].push(f);
+  // Group files by chapter folder
+  const chaptersMap={};
+  files.forEach(file=>{
+    const parts=file.webkitRelativePath.split("/");
+    if(parts.length>1){
+      const chap=parts[1];
+      if(!chaptersMap[chap]) chaptersMap[chap]=[];
+      chaptersMap[chap].push(file);
     }
   });
 
-  const sorted=Object.keys(chapters).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-  let totalImages=0;
-  sorted.forEach(c=>totalImages+=chapters[c].length);
+  const sortedChapters=Object.keys(chaptersMap).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+
+  let totalImages=files.length;
   let processed=0;
 
-  for(let chapIndex=0; chapIndex<sorted.length; chapIndex++){
-    const chapName = sorted[chapIndex];
+  for(const chapName of sortedChapters){
     const imgs=[];
-    const files=chapters[chapName].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-    for(const f of files){
-      const blob=await f.async("blob");
-      imgs.push(URL.createObjectURL(blob));
+    const sortedFiles=chaptersMap[chapName].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+    for(const f of sortedFiles){
+      const url=URL.createObjectURL(f);
+      imgs.push(url);
       processed++;
       const percent=Math.round((processed/totalImages)*100);
       loadingFill.style.width=percent+"%";
       loadingText.innerText=`Loading ${chapName}… ${percent}%`;
+      await new Promise(r=>setTimeout(r,1)); // let UI update
     }
     library[name].chapters.push(imgs);
     if(!library[name].cover) library[name].cover=imgs[0];
@@ -361,22 +343,19 @@ document.getElementById("zipUpload").addEventListener("change", async function(e
   loadingBar.style.display="none";
 });
 
-/* Swipe detection */
-let startX=0;
-document.addEventListener("touchstart",e=>startX=e.changedTouches[0].screenX);
-document.addEventListener("touchend",e=>{
-  let diff=e.changedTouches[0].screenX-startX;
-  if(Math.abs(diff)>120){
-    if(diff<0) nextChapter();
-    else prevChapter();
-  }
+/* Swipe & Pull-to-refresh */
+let startX=0, startY=0;
+document.addEventListener("touchstart",e=>{
+  startX=e.changedTouches[0].screenX;
+  startY=e.changedTouches[0].screenY;
 });
-
-/* Pull to refresh */
-let startY=0;
-document.addEventListener("touchstart",e=>startY=e.changedTouches[0].screenY);
 document.addEventListener("touchend",e=>{
-  if(window.scrollY===0 && e.changedTouches[0].screenY-startY>120){
+  let diffX=e.changedTouches[0].screenX-startX;
+  let diffY=e.changedTouches[0].screenY-startY;
+  if(Math.abs(diffX)>120){
+    if(diffX<0) nextChapter();
+    else prevChapter();
+  } else if(window.scrollY===0 && diffY>120){
     goLibrary();
   }
 });
